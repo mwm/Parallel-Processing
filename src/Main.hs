@@ -53,7 +53,7 @@ getHomeR = defaultLayout [whamlet|
 Try the
 <a href=@{UnthreadedR}>single-threaded
 or
-<a href=@{ThreadedR}>threaded
+<a href=@{ThreadedR}>multi-threaded
 versions.
 |]
 
