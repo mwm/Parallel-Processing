@@ -8,4 +8,6 @@ modules:
   Main(src/Main.hs):
     filename: src/Main.hs
 version: 1
-ghc-args: []
+extra-packages: ''
+ghc-args:
+- -threaded
