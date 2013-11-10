@@ -19,7 +19,8 @@ ymin = -1 :: Double
 ymax = 1 :: Double
 ystep = 100
 iters = 100000
--- row and column values (a little clunky but want to duplicate the Python calculation exactly)
+
+-- row and column calculations (could be cleaner)
 xs = map (\xc -> xc*(xmax-xmin)/xstep + xmin) [0..(xstep-1)] :: [Double]
 ys = map (\yc -> yc*(ymax-ymin)/ystep + ymin) [0..(ystep-1)] :: [Double]
 
