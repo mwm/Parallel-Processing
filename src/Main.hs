@@ -1,45 +1,29 @@
 -- | Main entry point to the application.
 {-# LANGUAGE TypeFamilies, QuasiQuotes, MultiParamTypeClasses,
-             TemplateHaskell, OverloadedStrings #-}
+             TemplateHaskell, OverloadedStrings, TupleSections #-}
 module Main where
 
+{- This module uses the Yesod framework to provide a web interface for invoking
+the two evalutors defined in Evalutors.
+
+Before starting Yesod, it allocates two cores with setNumCapabilities.
+
+The two different evaluators are then run in doTimes to collect timeing information
+from getProcessTimes, and report on the number of CPUs allocated with
+getNumCapabilities.
+-}
+    
 import Yesod
-import Control.Monad (mapM_)
-import Control.Parallel.Strategies
+import System.Environment
+import System.Posix.Process
 import Control.DeepSeq
+import GHC.Conc
 
-import Control.Monad (mapM_)
-import Control.Parallel.Strategies
-import Control.DeepSeq
 
-xmin = -2 :: Double
-xmax = 1 :: Double
-xstep = 80
-ymin = -1 :: Double
-ymax = 1 :: Double
-ystep = 100
-iters = 100000
-
--- row and column calculations (could be cleaner)
-xs = map (\xc -> xc*(xmax-xmin)/xstep + xmin) [0..(xstep-1)] :: [Double]
-ys = map (\yc -> yc*(ymax-ymin)/ystep + ymin) [0..(ystep-1)] :: [Double]
-
-escapesRec :: Int -> Double -> Double -> Double -> Double -> Bool
-escapesRec 0 _ _ _ _ = False
-escapesRec iter cr ci zr zi
-  | (zr*zr + zi*zi) > 4   = True
-  | otherwise             = (escapesRec (iter-1) cr ci $! (zr*zr - zi*zi + cr)) $! (2*zr*zi + ci)
-
-escapes :: Int -> Double -> Double -> Bool
-escapes iter cr ci = escapesRec iter cr ci 0 0
-
-row ci = r `deepseq` r -- force strict evaluation of the list
-  where
-    r = map toChar [escapes iters cr ci  | cr <- xs]
-    toChar b = if b then ' ' else 'X'
+import Evaluators
 
 -- Web server portion
-data Mandelbrot = Mandelbrot
+data Mandelbrot = Mandelbrot {iterations :: Int}
 
 instance Yesod Mandelbrot
 
@@ -57,7 +41,30 @@ or
 versions.
 |]
 
-getUnthreadedR = defaultLayout [whamlet|#{unlines $ map row ys}|]
-getThreadedR = defaultLayout [whamlet|#{unlines $ parMap rseq row ys}|]
+calcDiffs a b = ["CPU Seconds: " ++ show cpus,
+                 "Elapsed seconds: " ++ show elapsed,
+                 "Ratio: " ++ show ratio]
+    where cpus = getDiff userTime
+          elapsed = getDiff elapsedTime
+          ratio = cpus / elapsed
+          getDiff mem = (fromIntegral . fromEnum $ mem a - mem b) / 100
 
-main = warpEnv Mandelbrot
+doTime a = do
+    master <- getYesod
+    let its = iterations master
+    start <- liftIO getProcessTimes
+    let val = a its
+    -- use deepseq here to force the evaluation of val before we get the new times.
+    stop <- liftIO $ val `deepseq` getProcessTimes
+    cs <- liftIO getNumCapabilities
+    let res = val ++ ["CPUS: " ++ show cs] ++ calcDiffs stop start
+    defaultLayout [whamlet|<a href=@{HomeR}>Home</a><pre>#{unlines res}|]
+    
+
+getUnthreadedR = doTime single
+getThreadedR = doTime multi
+main = do
+        args <- liftIO getArgs
+        setNumCapabilities 2
+        warpEnv $ Mandelbrot 2000
+
