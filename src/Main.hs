@@ -13,9 +13,9 @@ import GHC.Conc
 import Evaluators
 
 main = do
-    liftIO $ setNumCapabilities 2
+    setNumCapabilities 2
     runNavigation "" . step $ do
-        doMulti <- page  $   h3 << "Parallel processing example"
+        doMulti <- page $ h3 << "Parallel processing example"
                ++> toHtml << "Run the "
                ++> wlink True  << toHtml << "multi-threaded"
                <++ toHtml << " or "
