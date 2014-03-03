@@ -39,7 +39,7 @@ interface code, and does all the IO.
 ## Parallel segments
 
 In order to run computations in parallel, the parts running in parallel must not depend on each in
-any way. If they are intedependent, you'll need some kind of rendezvous mechanism.  This is less
+any way. If they are interdependent, you'll need some kind of rendezvous mechanism.  This is less
 likely to happen in pure code, because you can't wait for values to change. Pure code doesn't
 guarantee rendezvous-free parallel code, but it does make it easier.
 
@@ -57,7 +57,7 @@ the parallel bits finer grained won't improve things.
 ## The example
 
 `Main.hs` provides the interface for the module. It sets the number of CPUs to use to two, or at
-least tries to. Then it runs a simple Yesod web server, with a home page that links to either a
+least tries to. Then it runs a simple MFlow web server, with a home page that links to either a
 single or multi-threaded run of the mandelbrot example. Running an example yields an ASCII plot
 of the Mandelbrot set, which should be familiar, except for using ASCII graphics. It also does
 some simple-minded timing and prints the results of that along with the CPU count, just to give you an

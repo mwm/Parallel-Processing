@@ -1,70 +1,48 @@
--- | Main entry point to the application.
-{-# LANGUAGE TypeFamilies, QuasiQuotes, MultiParamTypeClasses,
-             TemplateHaskell, OverloadedStrings, TupleSections #-}
 module Main where
 
-{- This module uses the Yesod framework to provide a web interface for invoking
-the two evalutors defined in Evalutors.
-
-Before starting Yesod, it allocates two cores with setNumCapabilities.
-
-The two different evaluators are then run in doTimes to collect timeing information
-from getProcessTimes, and report on the number of CPUs allocated with
-getNumCapabilities.
--}
+{- This module uses a short MFlow flow to allow the user to select between the two evaluators.
+   It then runs the evaluator with the doTime wrapper to provide some simple timing information
+   for comparison. -}
     
-import Yesod
+import MFlow.Wai.Blaze.Html.All
 import System.Environment
 import System.Posix.Process
 import Control.DeepSeq
 import GHC.Conc
 
-
 import Evaluators
 
--- Web server portion
-data Mandelbrot = Mandelbrot {iterations :: Int}
+main = do
+    liftIO $ setNumCapabilities 2
+    runNavigation "" . step $ do
+        doMulti <- page  $   h3 << "Parallel processing example"
+               ++> toHtml << "Run the "
+               ++> wlink True  << toHtml << "multi-threaded"
+               <++ toHtml << " or "
+               <|> wlink False << toHtml << "single-threaded"
+               <++ toHtml << " versions. Please allow them a minute or so to run."
 
-instance Yesod Mandelbrot
+        page $ do
+            lines <- liftIO $ doTime (if doMulti then multi else single)
+            h3 << "ASCII Mandelbrot" ++> pre << lines ++> wlink () << toHtml << "Home"
 
-mkYesod "Mandelbrot" [parseRoutes|
-  / HomeR GET
-  /unthreaded UnthreadedR GET
-  /threaded ThreadedR GET
-|]
+-- doTime runs one of the two evaluators in a wrapper that gets rough cpu and elapsed times so they
+-- can be compared, then outputs the set along with the timing information in one string
+doTime a = do
+    start <- getProcessTimes
+    let val = a 2000
+    -- use deepseq here to force the evaluation of val before we get the new times.
+    stop <- val `deepseq` getProcessTimes
+    cs <- liftIO getNumCapabilities
+    return $ unlines val ++ "\nCPUS: " ++ show cs ++ calcDiffs stop start
 
-getHomeR = defaultLayout [whamlet|
-Try the
-<a href=@{UnthreadedR}>single-threaded
-or
-<a href=@{ThreadedR}>multi-threaded
-versions.
-|]
-
-calcDiffs a b = ["CPU Seconds: " ++ show cpus,
-                 "Elapsed seconds: " ++ show elapsed,
-                 "Ratio: " ++ show ratio]
+-- calcDiffs uses the process times to calculate elapsed time, used cpu time, and their ratio and return
+-- a string providing that information
+calcDiffs a b = "\nCPU Seconds: " ++ show cpus ++
+                "\nElapsed seconds: " ++ show elapsed ++
+                "\nRatio: " ++ show ratio
     where cpus = getDiff userTime
           elapsed = getDiff elapsedTime
           ratio = cpus / elapsed
           getDiff mem = (fromIntegral . fromEnum $ mem a - mem b) / 100
-
-doTime a = do
-    master <- getYesod
-    let its = iterations master
-    start <- liftIO getProcessTimes
-    let val = a its
-    -- use deepseq here to force the evaluation of val before we get the new times.
-    stop <- liftIO $ val `deepseq` getProcessTimes
-    cs <- liftIO getNumCapabilities
-    let res = val ++ ["CPUS: " ++ show cs] ++ calcDiffs stop start
-    defaultLayout [whamlet|<a href=@{HomeR}>Home</a><pre>#{unlines res}|]
-    
-
-getUnthreadedR = doTime single
-getThreadedR = doTime multi
-main = do
-        args <- liftIO getArgs
-        setNumCapabilities 2
-        warpEnv $ Mandelbrot 2000
 
