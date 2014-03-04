@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 {- This module uses a short MFlow flow to allow the user to select between the two evaluators.
@@ -15,16 +17,16 @@ import Evaluators
 main = do
     setNumCapabilities 2
     runNavigation "" . step $ do
-        doMulti <- page $ h3 << "Parallel processing example"
-               ++> toHtml << "Run the "
-               ++> wlink True  << toHtml << "multi-threaded"
-               <++ toHtml << " or "
-               <|> wlink False << toHtml << "single-threaded"
-               <++ toHtml << " versions. Please allow them a minute or so to run."
+        doMulti <- page $ h3 "Parallel processing example"
+               ++> "Run the "
+               ++> wlink True "multi-threaded"
+               <++ " or "
+               <|> wlink False "single-threaded"
+               <++ " version. Please allow it a minute or so to run."
 
         page $ do
             lines <- liftIO $ doTime (if doMulti then multi else single)
-            h3 << "ASCII Mandelbrot" ++> pre << lines ++> wlink () << toHtml << "Home"
+            h3 "ASCII Mandelbrot" ++> pre << lines ++> wlink () "Home"
 
 -- doTime runs one of the two evaluators in a wrapper that gets rough cpu and elapsed times so they
 -- can be compared, then outputs the set along with the timing information in one string
